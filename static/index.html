@@ -1,1 +1,25 @@
 Main page up
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="reset.css">
+    <link rel="stylesheet" href="style.css">
+    <title>IdleGrind Client</title>
+</head>
+<body>
+    <div class="interface">
+        <canvas id="game" width="600" height=600></canvas>
+        <div id="panel">
+            <div id="action"></div>
+            <div id="display"></div>
+        </div>
+        <ul id="msgs"></ul>
+   
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>

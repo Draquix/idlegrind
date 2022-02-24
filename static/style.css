@@ -1,0 +1,42 @@
+.screen {
+    width:1000px;
+    color:black;
+    display:inline-block;
+}
+#msgs {
+    background-color: black;
+    color:green;
+    width:1000px;
+    height:200px;
+    border:2px solid red;
+    overflow:scroll;
+}
+#game {
+    border:2px solid purple;
+}
+#panel {
+    float:right;
+}
+
+.interface {
+    width:1000px;
+    background-color: black;
+    display:inline-block;
+}
+#display {
+    width:390px;
+    height:296px;
+    color:red;
+    border:2px solid red;
+}
+#action {
+    width:390px;
+    height:296px;
+    color:green;
+    border:2px dotted powderblue;
+
+}
+canvas {
+    float:left;
+    background-color: black;
+}
