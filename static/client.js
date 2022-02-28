@@ -16,8 +16,8 @@ let loaded = document.createElement('p');
 loaded.innerText = "action loaded";
 action.appendChild(loaded);
 var player={
-    xpos:2,
-    ypos:2
+    xpos:1,
+    ypos:1
 }
 
 var charBox = [];
@@ -96,7 +96,7 @@ function draw(){
                 ctx.fillStyle = "white";
                 ctx.fillText('=',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
             }
-            if (map[i][j]==="1"||map[i][j]==="2"){
+            if (map[i][j]==="+"){
                 ctx.fillStyle = "brown";
                 ctx.fillText('+', (xpos*j*tile)+1,(ypos*(i+1)*tile)+1);
             }
@@ -132,7 +132,7 @@ function draw(){
 function charDisplay(){
     display.innerHTML = " ";
     let player=charBox[0];
-    console.log("displaying object",player);
+    // console.log("displaying object",player);
     let char = document.createElement('p');
         char.innerHTML = `Stats for ${player.name} <br> `;
         char.innerHTML +=`Hp: ${player.hp}/${player.mHp} || Level: ${player.level} - xpTnl:${player.xp} <br>`;
@@ -152,8 +152,9 @@ function charDisplay(){
             } else{
                 char.innerHTML += `${player.backpack[i].name}, `;
             }
-        display.appendChild(char);
         }
+        char.innerHTML+=`<br><br> Coordinates: ${player.xpos}x,${player.ypos}y <br>`;
+        display.appendChild(char);
 }
 function useItem(num){
     if(charBox[0].using.length>0){
@@ -186,40 +187,48 @@ socket.on('handshake', (player,id) =>{
 });
 socket.on('Tick', data =>{
     draw();
-    console.log(data[0].xpos);
+    var player = charBox[0];
+    charBox.pop();
+    player.xpos = data[0].xpos;
+    player.ypos = data[0].ypos;
+    // console.log('tick data',data);
+    var map = Data.maps[0];
+    var space=map[player.ypos][player.xpos];
+    console.log(space, player.xpos, player.ypos);
     ctx.fillStyle="white";
-    ctx.fillText("C",data[0].xpos*18,data[0].ypos*18);
+    ctx.fillText("C",(player.xpos)*18,(player.ypos+1)*18);
+    charBox.pop();
+    charBox.push(player);
+    charDisplay();
 });
 document.onkeydown = function(event){
     var player = charBox[0];
     var map = Data.maps[0];
-    var space=map[player.ypos+1][player.xpos+1];
-    console.log(space);
     if(event.keyCode === 68){  //d
-        space = map[player.ypos][player.xpos+2];
-        socket.emit('move',{inputDir:'right'});
+        space = map[player.ypos][player.xpos+1];
+        socket.emit('move',{inputDir:'right',block:space});
     }
     else if(event.keyCode === 83){ //s
-        space = map[player.ypos+2][player.xpos];
-        socket.emit('move', {inputDir:'down'});
+        space = map[player.ypos+1][player.xpos];
+        socket.emit('move', {inputDir:'down',block:space});
     }
     else if(event.keyCode === 65){  //a
         space = map[player.ypos][player.xpos-1];
-        socket.emit('move', {inputDir:'left'});
+        socket.emit('move', {inputDir:'left',block:space});
     }
     else if(event.keyCode === 87){ //w
-        space = map[player.ypos][player.xpos-1];
-        socket.emit('move', {inputDir:'up'});
+        space = map[player.ypos-1][player.xpos];
+        socket.emit('move', {inputDir:'up',block:space});
     }
 }
 var Data = {};
     Data.maps = [];
 const mapArr = [
     ['#','#','#','#','#','#','#','#','#','#','#','#','#','#','#','#','#','#','#'],
-    ['#','.',',','#','=','#','-','#',',','.','.',',','#','#','c','#','#','.','#'],
+    ['#','S',',','#','=','#','-','#',',','.','.',',','#','#','c','#','#','.','#'],
     ['#','.',',','.','.','*','.','.',',','.','.',',','#',';',';',';',';',';','#','#'],
     ['#','.','.','.','.','.','.','.','.','.','.','.','#','.',';','.','.',',','/','#'],
-    ['#','.','.','P','.','.','.','.','.','#','1','#','#','.','.','.','.',',','/','#','#'],
+    ['#','.','.','P','.','.','.','.','.','#','+','#','#','.','.','.','.',',','/','#','#'],
     ['#',',','.','.',',','.','.',',','.','#',',','.','.','.','.','.','.','/',',','O','#'],
     ['#',',','.','.',',','.','.',',','.','#',',','.','.','.','.','/','T','.',',','/','#'],
     ['#',',','.','.',',','.','P',',','.','#','.','.','.','.','.','.','/','.',',',';','#'],
