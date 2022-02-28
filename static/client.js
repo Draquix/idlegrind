@@ -5,7 +5,8 @@ const socket = io();
 const msgs = document.querySelector('#msgs');
 const display = document.querySelector('#display');
 const action = document.querySelector('#action');
-const canvas = document.querySelector('#game');
+let canvas = document.getElementById('game');
+let ctx = canvas.getContext('2d');
 const love = 42;
 
 let post = document.createElement('p');
@@ -14,13 +15,14 @@ display.appendChild(post);
 let loaded = document.createElement('p');
 loaded.innerText = "action loaded";
 action.appendChild(loaded);
-var character={
+var player={
     xpos:2,
     ypos:2
 }
+
+var charBox = [];
+charBox.push(player);
 function draw(){
-    let canvas = document.getElementById('game');
-    let ctx = canvas.getContext('2d');
     ctx.clearRect(0,0,360,360)
     let tile = 18;
     let xpos = 1, ypos = 1;
@@ -66,14 +68,26 @@ function draw(){
                 ctx.fillStyle = 'blue';
                 ctx.fillText('@',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
             }
-            if (map[i][j]==="i"||map[i][j]==="O"){
+            if (map[i][j]==="t"){
+                ctx.fillStyle = 'grey';
+                ctx.fillText('^',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
+            }
+            if (map[i][j]==="O"){
+                ctx.fillStyle = 'brown';
+                ctx.fillText('T',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
+            }
+            if (map[i][j]==="i"){
+                ctx.fillStyle = 'red';
+                ctx.fillText('^',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
+            }
+            if (map[i][j]==="c"){
                 ctx.fillStyle = 'brown';
                 ctx.fillText('^',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
             }
-            // if (map[i][j]==="/"||map[i][j]==="O"||map[i][j]){
-            //     ctx.fillStyle = 'green';
-            //     ctx.fillText('|',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
-            // }
+            if (map[i][j]==="/"){
+                ctx.fillStyle = 'green';
+                ctx.fillText('|',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
+            }
             if (map[i][j]==="="){
                 ctx.fillStyle = "red";
                 ctx.fillText('=',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
@@ -109,11 +123,49 @@ function draw(){
         }
     ctx.fillStyle = "white";
     ctx.fillText(",",25*tile,29*tile);
-    ctx.fillText(character.xpos+1,24*tile,29*tile);
-    ctx.fillText(character.ypos,26*tile,29*tile);
+    ctx.fillText(charBox[0].xpos+1,24*tile,29*tile);
+    ctx.fillText(charBox[0].ypos,26*tile,29*tile);
     ctx.fillStyle = "blue";
-    ctx.fillText(character.tileTarget,4*tile,29*tile);
+    ctx.fillText(charBox[0].tileTarget,4*tile,29*tile);
     }
+}
+function charDisplay(){
+    display.innerHTML = " ";
+    let player=charBox[0];
+    console.log("displaying object",player);
+    let char = document.createElement('p');
+        char.innerHTML = `Stats for ${player.name} <br> `;
+        char.innerHTML +=`Hp: ${player.hp}/${player.mHp} || Level: ${player.level} - xpTnl:${player.xp} <br>`;
+        char.innerHTML +=`Strength: ${player.str}  || Defense: ${player.def} || Agility: ${player.agi} <BR>`;
+        char.innerHTML +=`Mining: ${player.mine} || Woodcutting: ${player.chop} || Fishing: ${player.fish} <br>`;
+        char.innerHTML +=`Cooking: ${player.cook} || Forging: ${player.forge} || Crafting: ${player.craft} <br>`;
+        char.innerHTML +=`Carrying ${player.kg} out of maximum of ${player.maxKg} <br>`
+        if(player.using.length>0){
+            char.innerHTML += `Currently weilding: ${player.using[0].name} <BR>`;
+        } else {
+            char.innerHTML += `Empty Handed<BR>`;
+        }
+        char.innerHTML +=`Backpack: `
+        for(i in player.backpack){
+            if(player.backpack[i].type==="tool"){
+                char.innerHTML += `${player.backpack[i].name} <a href="javascript:useItem(${i});"> use </a>, `;
+            } else{
+                char.innerHTML += `${player.backpack[i].name}, `;
+            }
+        display.appendChild(char);
+        }
+}
+function useItem(num){
+    if(charBox[0].using.length>0){
+        charBox[0].using.pop();
+    }
+    let item = charBox[0].backpack[num];
+    console.log('grabbing this item: ',item);
+    charBox[0].using.push(item);
+    let msg = document.createElement('p');
+    msg.innerText = `You begin using the ${item.name} as a tool.`;
+    msgs.appendChild(msg);
+    charDisplay();
 }
 socket.on('msg', data => {
     let msg = document.createElement('p');
@@ -122,9 +174,44 @@ socket.on('msg', data => {
 });
 
 let localID = 0;
-socket.on('handshake', (id) =>{
+socket.on('handshake', (player,id) =>{
     localID = id;
+    charBox.pop();
+    let name = prompt("What is your name?");
+    socket.emit('name', {name:name});
+    player.name = name;
+    charBox.push(player);
+    console.log("in the box: ",charBox[0]);
+    charDisplay();
 });
+socket.on('Tick', data =>{
+    draw();
+    console.log(data[0].xpos);
+    ctx.fillStyle="white";
+    ctx.fillText("C",data[0].xpos*18,data[0].ypos*18);
+});
+document.onkeydown = function(event){
+    var player = charBox[0];
+    var map = Data.maps[0];
+    var space=map[player.ypos+1][player.xpos+1];
+    console.log(space);
+    if(event.keyCode === 68){  //d
+        space = map[player.ypos][player.xpos+2];
+        socket.emit('move',{inputDir:'right'});
+    }
+    else if(event.keyCode === 83){ //s
+        space = map[player.ypos+2][player.xpos];
+        socket.emit('move', {inputDir:'down'});
+    }
+    else if(event.keyCode === 65){  //a
+        space = map[player.ypos][player.xpos-1];
+        socket.emit('move', {inputDir:'left'});
+    }
+    else if(event.keyCode === 87){ //w
+        space = map[player.ypos][player.xpos-1];
+        socket.emit('move', {inputDir:'up'});
+    }
+}
 var Data = {};
     Data.maps = [];
 const mapArr = [
@@ -150,3 +237,4 @@ const mapArr = [
 Data.maps.push(mapArr);
 draw();
 console.log(localID);
+
