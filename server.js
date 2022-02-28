@@ -36,10 +36,40 @@ io.on('connection', socket => {
         PLAYER_LIST[socket.id].name = name.name;
         console.log(PLAYER_LIST);
     });
+    socket.on('chest to inv',data =>{
+        let item = PLAYER_LIST[socket.id].chest[data.data];
+        if(PLAYER_LIST[socket.id].AddPack(item)){
+            PLAYER_LIST[socket.id].chest.splice(data.data,1);
+        } else {
+            let chest = PLAYER_LIST[socket.id].chest;
+            socket.emit('chest',{box:chest});
+        }
+        let player = PLAYER_LIST[socket.id];
+        socket.emit('player update',{player,atChest:true});
+    });
+    socket.on('inv to chest', data=> {
+       let item = PLAYER_LIST[socket.id].backpack[data.data];
+       let player = PLAYER_LIST[socket.id];
+       if(player.using.length>0&&player.using[0].name===item.name){
+           player.using.pop();
+       }
+       player.backpack.splice(data.data,1);
+       player.kg -= item.kg;
+       player.chest.push(item);
+       socket.emit('player update',{player,atChest:true}); 
+    });
+    socket.on('using',data =>{
+        console.log("using",data);
+        if(PLAYER_LIST[socket.id].using.length>0){
+            PLAYER_LIST[socket.id].using.pop();
+        }
+        PLAYER_LIST[socket.id].using.push(data);
+    })
     socket.on('move',data =>{
         console.log(data);
+        PLAYER_LIST[socket.id].doFlag="nothing";
         if(data.inputDir==="right"){
-            if(data.block==="."||data.block===","||data.block==="+"){
+            if(data.block==="."||data.block===","||data.block==="+"||data.block===";"){
                 PLAYER_LIST[socket.id].xpos+=1;
             } else {
                 var target = {
@@ -52,7 +82,7 @@ io.on('connection', socket => {
             }
         }
         if(data.inputDir==="left"){
-            if(data.block==="."||data.block===","||data.block==="+"){
+            if(data.block==="."||data.block===","||data.block==="+"||data.block===";"){
                 PLAYER_LIST[socket.id].xpos-=1;
             } else {
                 var target = {
@@ -65,7 +95,7 @@ io.on('connection', socket => {
             }
         }
         if(data.inputDir==="up"){
-            if(data.block==="."||data.block===","||data.block==="+"){
+            if(data.block==="."||data.block===","||data.block==="+"||data.block===";"){
                 PLAYER_LIST[socket.id].ypos-=1;
             } else {
                 var target = {
@@ -78,7 +108,7 @@ io.on('connection', socket => {
             }
         }
         if(data.inputDir==="down"){
-            if(data.block==="."||data.block===","||data.block==="+"){
+            if(data.block==="."||data.block===","||data.block==="+"||data.block===";"){
                 PLAYER_LIST[socket.id].ypos+=1;
             } else {
                 var target = {
@@ -114,17 +144,70 @@ setInterval( function () {
         let socket = SOCKET_LIST[i];
         socket.emit('Tick',pack);
     }
-
 },200);
+setInterval( function() {
+    for(i in PLAYER_LIST){
+        let player = PLAYER_LIST[i];
+        console.log("is doing... ", player.doFlag);
+        let socket = SOCKET_LIST[player.id];
+        if(player.doFlag==="mining"){
+            var attempt = "You swing your pickaxe at the rock.  ";
+            var rng = Math.random();
+            console.log("trying to hit ore with rng:" + rng + "with a baseDiff of " + (player.data.baseDiff+player.mine/100));
+            if(rng<(player.data.baseDiff+(player.mine/100))){
+                attempt += "You score a good enough hit to wrench free a chunk of ore!";
+                let chunk = player.data.onSuccess();
+                player.xp += player.data.xp;
+                player.AddPack(chunk);
+                if(player.kg===player.maxKg){
+                    attempt = "You can't hold any more materials.";
+                }
+            } else {
+                attempt += "Nothing yet...";
+            }
+            socket.emit('msg',{msg:attempt});
+            socket.emit('player update',{player,atChest:false});
+            PLAYER_LIST[socket.id] = player;
+        }
+    }
+
+},3000)
 //Interaction functions
 function collision(target){
     pack=[];
+    socket = SOCKET_LIST[target.id];
     if(target.b==='#'){
-        socket = SOCKET_LIST[target.id];
         socket.emit('msg',{msg:"You try to run through a wall and get a physics lesson."});
     }
     if(target.b==="P"){
-        console.log("NPC collision",target);
+        console.log("P @:",target.x,target.y);
+        for(i in NPCBox){
+            if(NPCBox[i].x===target.x&&NPCBox[i].y===target.y){
+                pack.push(NPCBox[i]);
+            }
+        }
+        socket.emit('msg',{msg:"You begin talking to an NPC."});
+        socket.emit('npc',{npc:pack});
+    }
+    if(target.b==="%"){
+        let chest = PLAYER_LIST[target.id].chest;
+        socket.emit('msg',{msg:"You begin sorting the contents of your storage chest."});
+        socket.emit('chest',{box:chest});
+    }
+    if(target.b==="c"){
+        if(PLAYER_LIST[target.id].using.length>0){
+            if(PLAYER_LIST[target.id].using[0].skill==="mine"){
+                PLAYER_LIST[target.id].doFlag="mining";
+                PLAYER_LIST[target.id].data=copperMine;
+                console.log(PLAYER_LIST[socket.id].name + " began mining copper");
+                socket.emit('msg',{msg:"You begin to swing your pickaxe at the copper deposit..."});
+            } else {
+                socket.emit('msg',{msg:"Your tool isn't meant for mining."});
+            }
+        } else {
+            socket.emit('msg',{msg:"You need to equip a tool first!"});
+        }
+
     }
 }
 
@@ -159,6 +242,12 @@ function Player(id){
         Raxe = new Tool("Rusty Axe","chop",1,1,3.5);
         this.AddPack(Rpick);
         this.AddPack(Raxe);
+        for(let i = 0; i < 3; i++){
+            chunkC = new Ore("copper ore",.5,1,.5);
+            chunkT = new Ore("tin ore",.5,1,.5);
+            this.chest.push(chunkC);
+            this.chest.push(chunkT)
+        }
     }
     this.AddPack = function(item){
         console.log(item);
@@ -167,7 +256,7 @@ function Player(id){
         }
         this.kg += item.kg;
         this.backpack.push(item);
-        return;
+        return true;
         }
 }
 function Tool(name,skill,req,bonus,kg){
@@ -179,11 +268,15 @@ function Tool(name,skill,req,bonus,kg){
     this.kg=kg;
 }
 function Ore(name,purity,req,kg){
+    this.type="ore";
     this.name=name;
+    this.purity=purity;
+    this.req=req;
+    this.kg=kg;
 }
 const NPC0 = {
     name: "Balaster",
-    x:4,
+    x:3,
     y:4,
     conversations: [
         {message:"Ahh, welcome newcomer to DraqRogue!",choice:["Where am I?","What should I do?"],answerI:[1,2],end:false},
@@ -198,8 +291,8 @@ const NPC0 = {
 }
 const NPC1 = {
     name: "Gillar",
-    x:8,
-    y:8,
+    x:6,
+    y:7,
     conversations:[
         {message:"Confound it! I can never understand how this singularity point allows you to take and leave things at will with such capacity!",end:true}
     ],
@@ -207,7 +300,19 @@ const NPC1 = {
 }
 NPCBox.push(NPC0);
 NPCBox.push(NPC1);
-
+const copperMine = {
+    req:1,
+    baseDiff:.25,
+    lowest:.2,
+    highest:.8,
+    xp:5,
+    onSuccess: function(){
+        let purity = Math.random()*(this.highest-this.lowest)+this.lowest;
+        let ore = new Ore("copper ore",purity,1,.5);
+        console.log("made new ore item: ", ore);
+        return ore;
+    }
+}
 //With all the files loaded, the below statement causes the server to boot up and listen for client connections.
 
 
