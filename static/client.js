@@ -138,10 +138,11 @@ function charDisplay(atChest){
     // console.log("displaying object",player);
     let char = document.createElement('p');
         char.innerHTML = `Stats for ${player.name} <br> `;
-        char.innerHTML +=`Hp: ${player.hp}/${player.mHp} || Level: ${player.level} - xpTnl:${player.xp} <br>`;
+        char.innerHTML +=`Hp: ${player.hp}/${player.mHp} || Level: ${player.level}  xpTnl: ${player.exp}/${player.expTnl} <br>`;
         char.innerHTML +=`Strength: ${player.str}  || Defense: ${player.def} || Agility: ${player.agi} <BR>`;
-        char.innerHTML +=`Mining: ${player.mine} || Woodcutting: ${player.chop} || Fishing: ${player.fish} <br>`;
-        char.innerHTML +=`Cooking: ${player.cook} || Forging: ${player.forge} || Crafting: ${player.craft} <br>`;
+        char.innerHTML +=`Mining: ${player.mine} Xp/Tnl: ${player.mineXp}/${player.mineTnl} || Woodcutting: ${player.chop} Xp/Tnl: ${player.chopXp}/${player.chopTnl} <br> `;
+        char.innerHTML +=`Cooking: ${player.cook} Xp/Tnl: ${player.cookXp}/${player.cookTnl} ||  Fishing: ${player.fish} Xp/Tnl: ${player.fishXp}/${player.fishTnl} <br>`;
+        char.innerHTML +=`Forging: ${player.forge} Xp/Tnl: ${player.forgeXp}/${player.forgeTnl}  || Crafting: ${player.craft} Xp/Tnl: ${player.craftXp}/${player.craftTnl} <br>`;
         char.innerHTML +=`Carrying ${player.kg} out of maximum of ${player.maxKg} <br>`
         if(player.using.length>0){
             char.innerHTML += `Currently weilding: ${player.using[0].name} <BR>`;
@@ -150,21 +151,70 @@ function charDisplay(atChest){
         }
         char.innerHTML +=`Backpack: `
         if(atChest===false){
+            console.log("not at chest");
             for(i in player.backpack){
+                char.innerHTML += `${player.backpack[i].name}`
                 if(player.backpack[i].type==="tool"){
-                    char.innerHTML += `${player.backpack[i].name} <a href="javascript:useItem(${i});"> use </a>, `;
-                } else{
-                    char.innerHTML += `${player.backpack[i].name}, `;
+                    char.innerHTML += ` <a href="javascript:useItem(${i});"> use </a>, `;
+                } else {
+                    char.innerHTML += `, `;
                 }
-                char.innerHTML += `<br> <a href="javascript:stackInv();"> Stack Like Items </a>`;
             }
         } else {
+            console.log("at chest");
             for(i in player.backpack){
-                char.innerHTML += `${player.backpack[i].name} <a href="javascript:putChest(${i});"> store, </a>`
+                char.innerHTML += `${player.backpack[i].name} <a href="javascript:putChest(${i});"> store </a>, `;
             }
         }
         char.innerHTML+=`<br><br> Coordinates: ${player.xpos}x,${player.ypos}y <br>`;
         display.appendChild(char);
+        let stacklist = [];
+        for(i in player.backpack){
+            let name = player.backpack[i].name;
+            if(player.backpack[i].stackable===true){
+                if(stacklist.length>0){
+                    let bool = false;
+                    for(i in stacklist){
+                        if(stacklist[i]===name)
+                        bool = true;
+                    }
+                    if(bool===false){
+                        stacklist.push(name);
+                    }
+                } else {
+                    stacklist.push(name);
+                }
+            }
+        }
+        for(i in stacklist){
+            let btn = document.createElement('button');
+            let name = stacklist[i];
+            btn.innerText = "stack all " + name;
+            btn.onclick = function () {
+                stackThis(name);
+            }
+            display.appendChild(btn);
+        }
+}
+function stackThis(itemName){
+    console.log("wanting to stack",itemName);
+    let pack = charBox[0].backpack;
+    let stack = {
+        nameOfItem:itemName,
+        pile:[],
+        quantity:0
+    };
+    let targetSplice = [];
+    for(i in pack){
+        console.log("item i",pack[i]);
+        if(pack[i].name===itemName){
+            targetSplice.push(i);
+            stack.pile.push(pack[i]);
+            stack.quantity++;
+        }
+    }
+    console.log("after stacking: ", stack);
+    console.log("for splicing",targetSplice);
 }
 // function stackInv(){
 //     var inv = charBox[0].backpack;

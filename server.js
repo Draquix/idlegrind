@@ -221,16 +221,17 @@ function Player(id){
     this.hp = 10;
     this.mHp = 10;
     this.level = 1;
-    this.xp = 0;
+    this.exp = 0;
+    this.exptnl = 40*this.level*1.2;
     this.str = 1;
     this.def = 1;
     this.agi = 1;
-    this.mine = 1;
-    this.chop = 1;
-    this.cook = 1;
-    this.fish = 1;
-    this.forge = 1;
-    this.craft = 1;
+    this.mine = 1;  this.mineXp = 0; this.mineTnl=40*this.mine*1.1;
+    this.chop = 1;  this.chopXp = 0; this.chopTnl=40*this.chop*1.1;
+    this.cook = 1;  this.cookXp = 0; this.cookTnl=40*this.cook*1.1;
+    this.fish = 1;  this.fishXp = 0; this.cookTnl=40*this.fish*1.1;
+    this.forge = 1;  this.forgeXp = 0; this.forgeTnl=40*this.forge*1.1;
+    this.craft = 1;  this.craftXp = 0; this.craftTnl=40*this.craft*1.1;
     this.backpack = [];
     this.doFlag = "nothing";
     this.data = [];
@@ -266,6 +267,8 @@ function Tool(name,skill,req,bonus,kg){
     this.req=req;
     this.bonus=bonus;
     this.kg=kg;
+    this.stackable=false;
+    this.id=Math.random();
 }
 function Ore(name,purity,req,kg){
     this.type="ore";
@@ -273,6 +276,8 @@ function Ore(name,purity,req,kg){
     this.purity=purity;
     this.req=req;
     this.kg=kg;
+    this.stackable=true;
+    this.id=Math.random();
 }
 const NPC0 = {
     name: "Balaster",
