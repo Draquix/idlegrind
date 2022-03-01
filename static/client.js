@@ -156,6 +156,7 @@ function charDisplay(atChest){
                 } else{
                     char.innerHTML += `${player.backpack[i].name}, `;
                 }
+                char.innerHTML += `<br> <a href="javascript:stackInv();"> Stack Like Items </a>`;
             }
         } else {
             for(i in player.backpack){
@@ -165,6 +166,19 @@ function charDisplay(atChest){
         char.innerHTML+=`<br><br> Coordinates: ${player.xpos}x,${player.ypos}y <br>`;
         display.appendChild(char);
 }
+// function stackInv(){
+//     var inv = charBox[0].backpack;
+//     inv.sort((first,second) => {
+//         let newArr = [];
+//         let same = 0;
+//         if(first==second){
+//             same++;
+//         }
+//         console.log(same);    
+//     });
+//     console.log(newAarr);
+
+// }
 function useItem(num){
     if(charBox[0].using.length>0){
         charBox[0].using.pop();

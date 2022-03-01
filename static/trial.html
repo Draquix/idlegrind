@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        var inventArr = [ "new", "thing","same","same","same"];
+       function findSame(arr){
+           var same = [];
+           arr.sort( (first,second)=>{
+               let like = "";
+               if(first===second){
+                   same.push(second);
+               }
+           });
+           return same[0];
+       }
+       var multi = findSame(inventArr);
+       console.log(multi)
+       console.log(inventArr);
+       function groupSame(multi,arr){
+           let output = [];
+           for(var i = 0;i<arr.length;i++){
+                console.log(`array at ${i}:`,arr[i]);
+                if(arr[i]===multi){
+                    output.push(arr[i]);
+                    console.log(arr);
+                }
+           }
+           for(var i = 0;i<arr.length+1;i++){
+               if(arr[i]===multi){
+                console.log('array at ',i,arr[i]);
+                 arr.splice(i,1);
+                 console.log('splice array at ',i,arr[i]);
+
+               }
+           }
+           arr.push(output);
+           return arr;
+       }
+       var invent = groupSame(multi,inventArr);
+       console.log(invent);
+
+
+
+
+
+
+
+    </script>
+    
+</body>
+</html>
