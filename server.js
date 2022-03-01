@@ -64,7 +64,17 @@ io.on('connection', socket => {
             PLAYER_LIST[socket.id].using.pop();
         }
         PLAYER_LIST[socket.id].using.push(data);
-    })
+    });
+    socket.on('stackpack', data=> {
+        console.log('stacked pack from above: ',data);
+        let player = PLAYER_LIST[socket.id];
+        for(var i = data.del.length;i>0;i--){
+            player.backpack.splice(data.del[i-1],1);
+        }
+        player.backpack.push(data.stack);
+        // console.log(player.backpack);
+        socket.emit('player update',{player,atChest:false});
+    });
     socket.on('move',data =>{
         console.log(data);
         PLAYER_LIST[socket.id].doFlag="nothing";

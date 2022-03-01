@@ -200,35 +200,26 @@ function stackThis(itemName){
     console.log("wanting to stack",itemName);
     let pack = charBox[0].backpack;
     let stack = {
-        nameOfItem:itemName,
-        pile:[],
-        quantity:0
+        name:"stacked " + itemName,
+        pack:[],
+        quantity:0,
+        kg:0,
     };
     let targetSplice = [];
     for(i in pack){
         console.log("item i",pack[i]);
         if(pack[i].name===itemName){
             targetSplice.push(i);
-            stack.pile.push(pack[i]);
+            stack.kg+=pack[i].kg;
             stack.quantity++;
+            stack.pack.push(pack[i]);
         }
     }
     console.log("after stacking: ", stack);
     console.log("for splicing",targetSplice);
+    socket.emit('stackpack',{stack,del:targetSplice});
 }
-// function stackInv(){
-//     var inv = charBox[0].backpack;
-//     inv.sort((first,second) => {
-//         let newArr = [];
-//         let same = 0;
-//         if(first==second){
-//             same++;
-//         }
-//         console.log(same);    
-//     });
-//     console.log(newAarr);
 
-// }
 function useItem(num){
     if(charBox[0].using.length>0){
         charBox[0].using.pop();
