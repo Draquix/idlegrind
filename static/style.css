@@ -10,6 +10,10 @@
     height:200px;
     border:2px solid red;
     overflow:scroll;
+    scroll-behavior: auto;
+    scroll-behavior: smooth;
+
+
 }
 #game {
     border:2px solid purple;

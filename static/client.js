@@ -23,7 +23,7 @@ var player={
 var charBox = [];
 charBox.push(player);
 function draw(){
-    ctx.clearRect(0,0,360,360)
+    ctx.clearRect(0,0,600,600)
     let tile = 18;
     let xpos = 1, ypos = 1;
     let countP = 0, countC = 0;
@@ -39,7 +39,7 @@ function draw(){
                 ctx.fillStyle = 'grey';
                 ctx.fillText('.',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
             }
-            if (map[i][j]==="*"){
+            if (map[i][j]==="0" || map[i][j]==="1" || map[i][j]==="2" || map[i][j]==="3" || map[i][j]==="4" || map[i][j]==="5" || map[i][j]==="6" || map[i][j]==="7" || map[i][j]==="8"){
                 ctx.fillStyle = "yellow";
                 ctx.fillText('*',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
             }
@@ -121,12 +121,12 @@ function draw(){
                 ctx.fillText('&', (xpos*j*tile)+1,(ypos*(i+1)*tile)+1);
             }
         }
-    ctx.fillStyle = "white";
-    ctx.fillText(",",25*tile,29*tile);
-    ctx.fillText(charBox[0].xpos+1,24*tile,29*tile);
-    ctx.fillText(charBox[0].ypos,26*tile,29*tile);
-    ctx.fillStyle = "blue";
-    ctx.fillText(charBox[0].tileTarget,4*tile,29*tile);
+    // ctx.fillStyle = "white";
+    // ctx.fillText(",",25*tile,29*tile);
+    // ctx.fillText(charBox[0].xpos+1,24*tile,29*tile);
+    // ctx.fillText(charBox[0].ypos,26*tile,29*tile);
+    // ctx.fillStyle = "blue";
+    // ctx.fillText(charBox[0].tileTarget,4*tile,29*tile);
     }
 }
 function charDisplay(atChest){
@@ -156,7 +156,9 @@ function charDisplay(atChest){
                 char.innerHTML += `${player.backpack[i].name}`
                 if(player.backpack[i].type==="tool"){
                     char.innerHTML += ` <a href="javascript:useItem(${i});"> use </a>, `;
-                } else {
+                } else if (player.backpack[i].type==="stack"){
+                    char.innerHTML += ` <a href="javascript:unstack(${i});"> unstack </a>, `;
+                } else{
                     char.innerHTML += `, `;
                 }
             }
@@ -196,11 +198,20 @@ function charDisplay(atChest){
             display.appendChild(btn);
         }
 }
+function unstack(num){
+    stack = charBox[0].backpack[num];
+    charBox[0].backpack.splice(num,1);
+    for(i in stack.pack){
+        charBox[0].backpack.push(stack.pack[i]);
+    }
+    socket.emit('unstack',{stack,num:num});
+}
 function stackThis(itemName){
     console.log("wanting to stack",itemName);
     let pack = charBox[0].backpack;
     let stack = {
         name:"stacked " + itemName,
+        type:"stack",
         pack:[],
         quantity:0,
         kg:0,
@@ -283,6 +294,16 @@ socket.on('msg', data => {
     let msg = document.createElement('p');
     msg.innerHTML = data.msg;
     msgs.appendChild(msg);
+    msgs.scrollTop = msgs.scrollHeight;
+});
+socket.on('poi', data => {
+    action.innerHTML = " ";
+    let poi = document.createElement('p');
+    poi.innerHTML = data.msg;
+    action.appendChild(poi);
+});
+socket.on('node display',data => {
+    console.log("node displaying",data);
 });
 socket.on('player update', data =>{
     console.log('player update object data:',data);
@@ -311,7 +332,7 @@ socket.on('Tick', data =>{
     // console.log('tick data',data);
     var map = Data.maps[0];
     var space=map[player.ypos][player.xpos];
-    console.log(space, player.xpos, player.ypos);
+    // console.log(space, player.xpos, player.ypos);
     ctx.fillStyle="white";
     ctx.fillText("C",(player.xpos)*18,(player.ypos+1)*18);
     charBox.pop();
@@ -352,19 +373,19 @@ var Data = {};
 const mapArr = [
     ['#','#','#','#','#','#','#','#','#','#','#','#','#','#','#','#','#','#','#'],
     ['#','S',',','#','=','#','-','#',',','.','.',',','#','#','c','#','#','.','#'],
-    ['#','.',',','.','.','*','.','.',',','.','.',',','#',';',';',';',';',';','#','#'],
+    ['#','.',',','.','.','1','.','.',',','.','.',',','#',';',';','4',';',';','#','#'],
     ['#','.','.','.','.','.','.','.','.','.','.','.','#','.',';','.','.',',','/','#'],
     ['#','.','.','P','.','.','.','.','.','#','+','#','#','.','.','.','.',',','/','#','#'],
     ['#',',','.','.',',','.','.',',','.','#',',','.','.','.','.','.','.','/',',','O','#'],
     ['#',',','.','.',',','.','.',',','.','#',',','.','.','.','.','/','T','.',',','/','#'],
-    ['#',',','.','.',',','.','P',',','.','#','.','.','.','.','.','.','/','.',',',';','#'],
+    ['#',',','.','.',',','.','P',',','.','#','.','.','.','.','.','3','/','.',',',';','#'],
     ['#',',','.','.',',','.','%',',','.','&','#','.','.','.','.','.','.','.',',','#','#'],
-    ['#',',','.','.',',','.','.',',','.','*','#','.','.','.','.','.','.','.',';','.','#'],
+    ['#',',','.','.',',','.','.',',','.','2','#','.','.','.','.','.','.','.',';','.','#'],
     ['#','#','#','#','#','#','#','#','#','#','#','.','.','.','.','.','.','.',';','t','#','#','#','#','#','#'],
     ['#','.','.','.','.','.','.',';','.',',','.','.','.','.',';','.',',','.','.','.','.',';',';',',',';','#'],
-    ['#','~','.','.',';','.','.',',',',',',','.','.',';','.',';','.',',','.','.','.','.','.','.',',','i','#'],
+    ['#','~','.','.',';','.','.',',',',',',','.','.',';','.',';','P',',','.','.','.','.','.','.',',','i','#'],
     ['#','~','~','.','.','.','.',';','.',',','.','.','.','.',',','.',',','.','.','.','.',';','.',';','#','#'],
-    ['#','~','~','f','.','.','.','.','.',',','.','.','.','.',';','.',',',',','.','.','.','.','.','#','#'],
+    ['#','~','~','f','.','.','5','.','.',',','.','.','.','.',';','.',',',',','.','.','.','.','.','#','#'],
     ['#','~','~','~','~','~','~','~','~','F','~','.','.','.','.','.',',','.','.','.','.',';','.','#'],
     ['#','#','#','#','#','#','#','#','#','#','~','#','#','#','#','#','#','#','#','#','#','#','#','#'],
 
