@@ -77,13 +77,48 @@ io.on('connection', socket => {
         socket.emit('player update',{player,atChest:false});
     });
     socket.on('unstack', data =>{
-        console.log('unstacking: ',data.pack)
+        console.log('unstacking: ',data.stack)
         PLAYER_LIST[socket.id].backpack.splice(data.num,1);
         for(i in data.stack.pack){
             PLAYER_LIST[socket.id].backpack.push(data.stack.pack[i]);
         }
         let player = PLAYER_LIST[socket.id];
         socket.emit('player update',{player,atChest:false});
+    });
+    socket.on('craft', data => {
+        let list = recipeBook[data.level][data.index].ingredients;
+        let pack = PLAYER_LIST[socket.id].backpack;
+        let haveAll = true;
+        for(i in list){
+            let hasArr=[];
+            for(t in pack){
+                console.log("list item: ",list[i]," packchecking: ",pack[t]);
+                if(pack[t].name===list[i]){
+                    console.log("has ", pack[t]);
+                    hasArr.push(pack[t]);
+                    pack.splice(t,1);
+                    list.splice(i,1);
+                }
+                console.log("pack",pack);
+                console.log("list",list);
+            }
+            console.log(hasArr);
+        }
+        if(list.length>0){
+            console.log('fail ');
+            socket.emit('msg',{msg:"You do not have the correct ingredients to make that item."});
+        } else {
+            PLAYER_LIST[socket.id].backpack = pack;
+            let item = recipeBook[data.level][data.index].makeObj();
+            console.log(item);
+            PLAYER_LIST[socket.id].backpack.push(item);
+            PLAYER_LIST[socket.id].weightCheck();
+            PLAYER_LIST[socket.id].craftXp += recipeBook[data.level][data.index].xp;
+            let player = PLAYER_LIST[socket.id];
+            let msg = `You successfully crafted a ${item.name}.`;
+            socket.emit('msg',{msg:msg});
+            socket.emit('player update',{player,atChest:false});
+        }
     });
     socket.on('move',data =>{
         PLAYER_LIST[socket.id].doFlag="nothing";
@@ -172,10 +207,14 @@ setInterval( function() {
             var attempt = "You swing your pickaxe at the rock.  ";
             var rng = Math.random();
             console.log("trying to hit ore with rng:" + rng + "with a baseDiff of " + (player.data.baseDiff+player.mine/100));
-            if(rng<(player.data.baseDiff+(player.mine/100))){
+            if(rng<(player.data.baseDiff+(player.mine/100)+player.using[0].bonus/100)){
                 attempt += "You score a good enough hit to wrench free a chunk of ore!";
                 let chunk = player.data.onSuccess();
                 player.mineXp += player.data.xp;
+                if(player.mineXp>=player.mineTnl){
+                    player.mine++;
+                    player.mineTnl = 40*player.mine*1.1;
+                }
                 player.AddPack(chunk);
                 if(player.kg===player.maxKg){
                     attempt = "You can't hold any more materials.";
@@ -194,10 +233,14 @@ setInterval( function() {
 
         } else if(player.doFlag==="chopping"&&player.chop>=player.data.req){
             let rng = Math.random();
-            if(rng<(player.data.baseDiff+(player.chop/100))){
+            if(rng<(player.data.baseDiff+(player.chop/100)+player.using[0].bonus/100)){
                 var attempt = "You swing your axe and chop the tree.";
                 player.data.trunk--;
                 player.chopXp += player.data.xp;
+                if(player.chopXp>player.chopTnl){
+                    player.chop++;
+                    player.chopTnl = 40*player.chop*1.1;
+                }
                 if(player.data.trunk===0){
                     let log = player.data.onSuccess();
                     player.AddPack(log);
@@ -246,17 +289,22 @@ function collision(target){
         socket.emit('chest',{box:chest});
     }
     if(target.b==="c"||target.b==="t"){
+        let node = {};
+        if(target.b==="c"){
+            node = copperMine;
+        }
+        if(target.b==="t"){
+            node = PLAYER_LIST[target.id].data=tinMine;
+        }
         if(PLAYER_LIST[target.id].using.length>0){
             if(PLAYER_LIST[target.id].using[0].skill==="mine"){
                 PLAYER_LIST[target.id].doFlag="mining";
                 if(target.b==="c"){
-                    PLAYER_LIST[target.id].data=copperMine;
+                    PLAYER_LIST[target.id].data=node;
                 }
                 if(target.b==="t"){
-                    PLAYER_LIST[target.id].data=tinMine;
+                    PLAYER_LIST[target.id].data=node;
                 }
-                let node = PLAYER_LIST[target.id].data;
-                socket.emit('node display',{node});
                 socket.emit('msg',{msg:"You begin to swing your pickaxe at the ore deposit..."});
             } else {
                 socket.emit('msg',{msg:"Your tool isn't meant for mining."});
@@ -264,8 +312,16 @@ function collision(target){
         } else {
             socket.emit('msg',{msg:"You need to equip a tool first!"});
         }
+    socket.emit('node display',{node});
     }
     if(target.b==="T"||target.b==="O"){
+        let node = {};
+        if(target.b==="T"){
+            node = firTree;
+        }
+        if(target.b==="o"){
+            node = oakTree;
+        }
         if(PLAYER_LIST[target.id].using.length>0){
             if(PLAYER_LIST[target.id].using[0].skill==="chop"){
                 if(PLAYER_LIST[target.id].using[0].skill==="chop"){
@@ -276,8 +332,6 @@ function collision(target){
                     if(target.b==="O"){
                         PLAYER_LIST[target.id].data=oakTree;
                     }
-                    let node = PLAYER_LIST[target.id].data;
-                    socket.emit('node display',{node});
                 }
             }else{
                 socket.emit('msg',{msg:"You're using the wrong type of tool..."});
@@ -285,21 +339,25 @@ function collision(target){
             }else{
                 socket.emit('msg',{msg:"You would need an axe to chop this tree..."})
             }
+        socket.emit('node display',{node});
     }
     if(target.b==="1"){
         socket.emit('poi',{msg:"Here is the forge '=' where you can smelt ores into bars for smithing at the anvil represented by'-'"});
     }
     if(target.b==="2"){
-        socket.emit('poi',{msg:"Here at the fire you can cook the raw foods you have in the cooking interface."});
+        socket.emit('poi',{msg:"Here at the fire, shown as red '&', you can cook the raw foods you have. At the crafting table, shown as a brown '!', you can make items from various materials or check the recipe list of possible crafts."});
     }
     if(target.b==="3"){
-        socket.emit('poi',{msg:"Trees are a good source of wood for chopping. You need to use your axe at the 'T'"});
+        socket.emit('poi',{msg:"Trees are a good source of wood for chopping. You need to use your axe at the 'T'.  It takes several good swings to fell a tree and get a log."});
     }
     if(target.b==="4"){
         socket.emit('poi',{msg:"You can mine ores at deposits shown as '^' on the map.  You'll need to use a pickaxe."});
     }
     if(target.b==="5"){
         socket.emit('poi',{msg:"Fishing is a good source of food.  You will need a fishing pole, which can be made from a fir log."});
+    }
+    if(target.b==="!"){
+        socket.emit('crafting',{recipeBook});
     }
 
 }
@@ -352,6 +410,12 @@ function Player(id){
         this.backpack.push(item);
         return true;
         }
+    this.weightCheck = function(){
+        this.kg = 0;
+        for(i in this.backpack){
+            this.kg += this.backpack[i];
+        }
+    }
 }
 function Tool(name,skill,req,bonus,kg){
     this.type="tool";
@@ -359,6 +423,16 @@ function Tool(name,skill,req,bonus,kg){
     this.skill=skill;
     this.req=req;
     this.bonus=bonus;
+    this.kg=kg;
+    this.stackable=false;
+    this.id=Math.random();
+}
+function Weapon(name,skill,req,dam,kg){
+    this.type="weapon";
+    this.name=name;
+    this.skill=skill;
+    this.req=req;
+    this.dam=dam;
     this.kg=kg;
     this.stackable=false;
     this.id=Math.random();
@@ -377,6 +451,13 @@ function Log(name,req,kg){
     this.name=name;
     this.req=req;
     this.kg=kg;
+    this.stackable=true;
+    this.id=Math.random();
+}
+function Bar(name,type){
+    this.name=name;
+    this.type=type;
+    this.kg=1;
     this.stackable=true;
     this.id=Math.random();
 }
@@ -407,6 +488,7 @@ const NPC1 = {
 NPCBox.push(NPC0);
 NPCBox.push(NPC1);
 const copperMine = {
+    name:"Copper Mine",
     req:3,
     baseDiff:.25,
     lowest:.2,
@@ -419,6 +501,7 @@ const copperMine = {
     }
 }
 const tinMine = {
+    name:"Tine Mine",
     req:1,
     baseDiff:.3,
     lowest:.2,
@@ -431,6 +514,7 @@ const tinMine = {
     }
 }
 const firTree = {
+    name:"Fir Tree",
     req:1,
     count:3,
     trunk:3,
@@ -442,6 +526,7 @@ const firTree = {
     }
 }
 const oakTree = {
+    name:"Oak Tree",
     req:1,
     count:5,
     trunk:5,
@@ -452,6 +537,32 @@ const oakTree = {
         return log;
     }
 }
+const recipeBook = [" ", 
+    [//level 1 crafts:        Rpick = new Tool("Rusty Pickaxe","mine",1,1,3.5);
+        { name:"Fishing Pole",
+        xp:8,
+        ingredients:["fir log"],
+        makeObj: function(){
+            let pole = new Tool("Fishing Pole","fish",1,1,1);
+            return pole;
+        },
+    }, { name:"Wooden Club",
+        xp:8,
+        ingredients:["fir log"],
+        makeObj: function(){
+            let club = new Weapon("Club","str",1,[1,4],1);
+            return club;
+        }
+    },{ name:"Copper Dagger",
+        xp:12,
+        ingredients:["fir log","copper bar"],
+        makeObj: function(){
+            let dagger = new Weapon("copper dagger","agi",2,[1,6],1);
+            return dagger;
+        }
+    }]
+];
+
 //With all the files loaded, the below statement causes the server to boot up and listen for client connect
 
 server.listen(port, () => {

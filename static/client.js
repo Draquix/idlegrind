@@ -32,7 +32,7 @@ function draw(){
     for (let i = 0; i < map.length; i++){
         for (let j = 0; j < map[i].length; j++){
             if (map[i][j]==="#"){
-                ctx.fillStyle = 'brown';
+                ctx.fillStyle = 'Grey';
                 ctx.fillText('#',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
             }
             if (map[i][j]==="."){
@@ -94,7 +94,7 @@ function draw(){
             }
             if (map[i][j]==="-"){
                 ctx.fillStyle = "white";
-                ctx.fillText('=',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
+                ctx.fillText('-',(xpos*(j)*tile)+1, (ypos*(i+1)*tile)+1);
             }
             if (map[i][j]==="+"){
                 ctx.fillStyle = "brown";
@@ -116,9 +116,9 @@ function draw(){
                 ctx.fillStyle = "brown";
                 ctx.fillText('%', (xpos*j*tile)+1,(ypos*(i+1)*tile)+1);
             }
-            if (map[i][j]==="Q"){
-                ctx.fillStyle = "dark grey";
-                ctx.fillText('&', (xpos*j*tile)+1,(ypos*(i+1)*tile)+1);
+            if (map[i][j]==="!"){
+                ctx.fillStyle = "brown";
+                ctx.fillText('!', (xpos*j*tile)+1,(ypos*(i+1)*tile)+1);
             }
         }
     // ctx.fillStyle = "white";
@@ -131,9 +131,7 @@ function draw(){
 }
 function charDisplay(atChest){
     display.innerHTML = " ";
-    if(atChest===false){
-        action.innerHTML = " ";
-    }
+    
     let player=charBox[0];
     // console.log("displaying object",player);
     let char = document.createElement('p');
@@ -200,14 +198,16 @@ function charDisplay(atChest){
 }
 function unstack(num){
     stack = charBox[0].backpack[num];
+    socket.emit('unstack',{stack,num:num});
     charBox[0].backpack.splice(num,1);
     for(i in stack.pack){
         charBox[0].backpack.push(stack.pack[i]);
     }
-    socket.emit('unstack',{stack,num:num});
+    action.innerHTML = " ";
 }
 function stackThis(itemName){
-    console.log("wanting to stack",itemName);
+    let msg = document.createElement('p');
+    msg.innerHTML = `You stack together all the ${itemName}'s you have.`;
     let pack = charBox[0].backpack;
     let stack = {
         name:"stacked " + itemName,
@@ -226,8 +226,8 @@ function stackThis(itemName){
             stack.pack.push(pack[i]);
         }
     }
-    console.log("after stacking: ", stack);
-    console.log("for splicing",targetSplice);
+    msgs.appendChild(msg);
+    itemDisplay(stack);
     socket.emit('stackpack',{stack,del:targetSplice});
 }
 
@@ -236,6 +236,7 @@ function useItem(num){
         charBox[0].using.pop();
     }
     let item = charBox[0].backpack[num];
+    itemDisplay(item);
     console.log('grabbing this item: ',item);
     charBox[0].using.push(item);
     socket.emit('using',item);
@@ -243,6 +244,23 @@ function useItem(num){
     msg.innerText = `You begin using the ${item.name} as a tool.`;
     msgs.appendChild(msg);
     charDisplay(false);
+}
+function itemDisplay(item){
+    action.innerHTML = " ";
+    console.log('Displaying item: ',item);
+    let disp = document.createElement('p');
+    disp.innerHTML = item.name;
+    disp.innerHTML += `<br> Of type: ${item.type} with a level requirement to use of ${item.req}.`;
+    if(item.stackable){
+        disp.innerHTML += "<br> These materials can be stacked.";
+    } else {
+        disp.innerHTML += "<br> This item cannot be stacked.";
+    }
+    if(item.purity){
+        disp.innerHTML += `<br> This ore is ${item.purity*100}% pure.`;
+    }
+    disp.innerHTML += `<br> Weight: ${item.kg}`;
+    action.appendChild(disp);
 }
 let CONVO = 0;
 function converse(NPC,flow){
@@ -276,6 +294,7 @@ function storage(){
 }
 function takeChest(num){
     let item = charBox[0].chest[num];
+    itemDisplay(item);
     charBox[0].chest.splice(num,1);
     socket.emit('chest to inv',{data:num});
     console.log("trying get this item: ",item);
@@ -283,12 +302,19 @@ function takeChest(num){
 }
 function putChest(num){
     let item = charBox[0].backpack[num];
+    charBox[0].chest.push(item);
+    itemDisplay(item);
     if(charBox[0].using.length>0&&item.name===charBox[0].using[0].name){
         charBox[0].using.pop();
     }
     charBox[0].backpack.splice(num,1);
     socket.emit('inv to chest',{data:num});
+    console.log(charBox[0].chest);
     storage();
+}
+function crafting(level,index){
+    console.log('crafting: ',level,index);
+    socket.emit('craft', {level,index});
 }
 socket.on('msg', data => {
     let msg = document.createElement('p');
@@ -302,8 +328,38 @@ socket.on('poi', data => {
     poi.innerHTML = data.msg;
     action.appendChild(poi);
 });
+socket.on('crafting',data => {
+    action.innerHTML = " ";
+    for(let L =0; i<charBox[0].craft+1;L++){
+        for(i in data.recipeBook[L]){
+            if(data.recipeBook[L][i].name){
+            let recipe = document.createElement('p');
+            recipe.innerHTML = data.recipeBook[L][i].name + ": ";
+            for(n in data.recipeBook[L][i].ingredients){
+                recipe.innerHTML += data.recipeBook[L][i].ingredients[n] + " ,";
+            }
+            recipe.innerHTML += ` xp: ${data.recipeBook[L][i].xp} `;
+            recipe.innerHTML += `<a href="javascript:crafting(${L},${i});"> make </a><br>`;
+            action.appendChild(recipe);           
+        }
+    }    
+    }
+});
 socket.on('node display',data => {
     console.log("node displaying",data);
+    action.innerHTML = " ";
+    let node = document.createElement('p');
+    node.innerHTML = data.node.name;
+    node.innerHTML += `<br> Level requirement: ${data.node.req}`;
+    node.innerHTML += `<br> Success rate: ${data.node.baseDiff*100}% plus 1% per level in this skill. `;
+    node.innerHTML += `<br> Xp awarded per success: ${data.node.xp}`;
+    if(data.node.trunk){
+        node.innerHTML += `<br> It takes ${data.node.trunk} successful swings to harvest a log.`;
+    }
+    if(data.node.lowest){
+        node.innerHTML += `<br> The quality of the ore ranges from ${data.node.lowest*100} - ${data.node.highest*100}%.`
+    }
+    action.appendChild(node);
 });
 socket.on('player update', data =>{
     console.log('player update object data:',data);
@@ -377,10 +433,10 @@ const mapArr = [
     ['#','.','.','.','.','.','.','.','.','.','.','.','#','.',';','.','.',',','/','#'],
     ['#','.','.','P','.','.','.','.','.','#','+','#','#','.','.','.','.',',','/','#','#'],
     ['#',',','.','.',',','.','.',',','.','#',',','.','.','.','.','.','.','/',',','O','#'],
-    ['#',',','.','.',',','.','.',',','.','#',',','.','.','.','.','/','T','.',',','/','#'],
-    ['#',',','.','.',',','.','P',',','.','#','.','.','.','.','.','3','/','.',',',';','#'],
-    ['#',',','.','.',',','.','%',',','.','&','#','.','.','.','.','.','.','.',',','#','#'],
-    ['#',',','.','.',',','.','.',',','.','2','#','.','.','.','.','.','.','.',';','.','#'],
+    ['#',',','.','.',',','.','.',',','.','#','#','.','.','.','.','/','T','.',',','/','#'],
+    ['#',',','.','.',',','.','P',',','.','!','#','.','.','.','.','3','/','.',',',';','#'],
+    ['#',',','.','.',',','.','%',',','.','2','#','.','.','.','.','.','.','.',',','#','#'],
+    ['#',',','.','.',',','.','.',',','.','&','#','.','.','.','.','.','.','.',';','.','#'],
     ['#','#','#','#','#','#','#','#','#','#','#','.','.','.','.','.','.','.',';','t','#','#','#','#','#','#'],
     ['#','.','.','.','.','.','.',';','.',',','.','.','.','.',';','.',',','.','.','.','.',';',';',',',';','#'],
     ['#','~','.','.',';','.','.',',',',',',','.','.',';','.',';','P',',','.','.','.','.','.','.',',','i','#'],
