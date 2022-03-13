@@ -10,16 +10,17 @@ const path = require('path');
 const { runInThisContext } = require('vm');
 const io = require('socket.io')(server);
 const port = process.env.PORT || 3000;
-
 app.use(express.static(path.join(__dirname, '/static')));
 
 //GLOBAL VARIABLES
 let SOCKET_LIST = {};
 let MAPS = {};
 let PLAYER_LIST = {};
-let NPCBox = [];
 
+const nod = require('./nodes');
+const obj = require('./objects');
 
+let NPCBox = nod.NPCBox;
 //socket.io handlers
 io.on('connection', socket => {
     io.emit('msg', {msg:'new server connection established'});
@@ -109,7 +110,7 @@ io.on('connection', socket => {
             socket.emit('msg',{msg:"You do not have the correct ingredients to make that item."});
         } else {
             PLAYER_LIST[socket.id].backpack = pack;
-            let item = recipeBook[data.level][data.index].makeObj();
+            let item = obj.recipeBook[data.level][data.index].makeObj();
             console.log(item);
             PLAYER_LIST[socket.id].backpack.push(item);
             PLAYER_LIST[socket.id].weightCheck();
@@ -291,10 +292,10 @@ function collision(target){
     if(target.b==="c"||target.b==="t"){
         let node = {};
         if(target.b==="c"){
-            node = copperMine;
+            node = nod.copperMine;
         }
         if(target.b==="t"){
-            node = PLAYER_LIST[target.id].data=tinMine;
+            node = nod.tinMine;
         }
         if(PLAYER_LIST[target.id].using.length>0){
             if(PLAYER_LIST[target.id].using[0].skill==="mine"){
@@ -317,20 +318,20 @@ function collision(target){
     if(target.b==="T"||target.b==="O"){
         let node = {};
         if(target.b==="T"){
-            node = firTree;
+            node = nod.firTree;
         }
         if(target.b==="o"){
-            node = oakTree;
+            node = nod.oakTree;
         }
         if(PLAYER_LIST[target.id].using.length>0){
             if(PLAYER_LIST[target.id].using[0].skill==="chop"){
                 if(PLAYER_LIST[target.id].using[0].skill==="chop"){
                     PLAYER_LIST[target.id].doFlag="chopping";
                     if(target.b="T"){
-                        PLAYER_LIST[target.id].data=firTree;
+                        PLAYER_LIST[target.id].data=node;
                     }
                     if(target.b==="O"){
-                        PLAYER_LIST[target.id].data=oakTree;
+                        PLAYER_LIST[target.id].data=node;
                     }
                 }
             }else{
@@ -340,6 +341,9 @@ function collision(target){
                 socket.emit('msg',{msg:"You would need an axe to chop this tree..."})
             }
         socket.emit('node display',{node});
+    }
+    if(target.b==="f" || target.b==="F"){
+        
     }
     if(target.b==="1"){
         socket.emit('poi',{msg:"Here is the forge '=' where you can smelt ores into bars for smithing at the anvil represented by'-'"});
@@ -354,7 +358,7 @@ function collision(target){
         socket.emit('poi',{msg:"You can mine ores at deposits shown as '^' on the map.  You'll need to use a pickaxe."});
     }
     if(target.b==="5"){
-        socket.emit('poi',{msg:"Fishing is a good source of food.  You will need a fishing pole, which can be made from a fir log."});
+        socket.emit('poi',{msg:"Fishing is a good source of food.  You will need a fishing pole, which can be made from a fir log at the crafting table.  The pond has easier fish to catch than up the steam."});
     }
     if(target.b==="!"){
         socket.emit('crafting',{recipeBook});
@@ -390,13 +394,13 @@ function Player(id){
     this.chest = [];
     this.maxKg = 10+this.str*5;
     this.init = function(){
-        Rpick = new Tool("Rusty Pickaxe","mine",1,1,3.5);
-        Raxe = new Tool("Rusty Axe","chop",1,1,3.5);
+        Rpick = new obj.Tool("Rusty Pickaxe","mine",1,1,3.5);
+        Raxe = new obj.Tool("Rusty Axe","chop",1,1,3.5);
         this.AddPack(Rpick);
         this.AddPack(Raxe);
         for(let i = 0; i < 3; i++){
-            chunkC = new Ore("copper ore",.5,1,.5);
-            chunkT = new Ore("tin ore",.5,1,.5);
+            chunkC = new obj.Ore("copper ore",.5,1,.5);
+            chunkT = new obj.Ore("tin ore",.5,1,.5);
             this.chest.push(chunkC);
             this.chest.push(chunkT)
         }
@@ -417,151 +421,9 @@ function Player(id){
         }
     }
 }
-function Tool(name,skill,req,bonus,kg){
-    this.type="tool";
-    this.name=name;
-    this.skill=skill;
-    this.req=req;
-    this.bonus=bonus;
-    this.kg=kg;
-    this.stackable=false;
-    this.id=Math.random();
-}
-function Weapon(name,skill,req,dam,kg){
-    this.type="weapon";
-    this.name=name;
-    this.skill=skill;
-    this.req=req;
-    this.dam=dam;
-    this.kg=kg;
-    this.stackable=false;
-    this.id=Math.random();
-}
-function Ore(name,purity,req,kg){
-    this.type="ore";
-    this.name=name;
-    this.purity=purity;
-    this.req=req;
-    this.kg=kg;
-    this.stackable=true;
-    this.id=Math.random();
-}
-function Log(name,req,kg){
-    this.type="log";
-    this.name=name;
-    this.req=req;
-    this.kg=kg;
-    this.stackable=true;
-    this.id=Math.random();
-}
-function Bar(name,type){
-    this.name=name;
-    this.type=type;
-    this.kg=1;
-    this.stackable=true;
-    this.id=Math.random();
-}
-const NPC0 = {
-    name: "Balaster",
-    x:3,
-    y:4,
-    conversations: [
-        {message:"Ahh, welcome newcomer to DraqRogue!",choice:["Where am I?","What should I do?"],answerI:[1,2],end:false},
-        {message:"These are the starting barracks... people begin here to feed the machine.",choice:["...the machine?"],answerI:[3],end:false},
-        {message:"In this room is a furnace and an anvil. If you had the materials, you could smelt and forge things.",choice:["Where do I get materials?","Is there anything else to do?"],answer:[4,5],end:false},
-        {message:"Draq wages constant war on other realms, so he needs to train people to work and fight to grind them down!",choice:["Who's the wizard in green?","What should I do?"],answerI:[6,2],end:false},
-        {message:"Go out the door to the work yard and train on menial tasks so you become a good cog.",end:true},
-        {message:"Aside from gathering and crafting, we do need good soldiers... you could train at combat. Also head out the door for that",end:true},
-        {message:"Oh, that's wizard Gillar. He can teach you about the inventory storage system.",end:true}
-    ],
-    questBool:false
-}
-const NPC1 = {
-    name: "Gillar",
-    x:6,
-    y:7,
-    conversations:[
-        {message:"Confound it! I can never understand how this singularity point allows you to take and leave things at will with such capacity!",end:true}
-    ],
-    questBool:true
-}
-NPCBox.push(NPC0);
-NPCBox.push(NPC1);
-const copperMine = {
-    name:"Copper Mine",
-    req:3,
-    baseDiff:.25,
-    lowest:.2,
-    highest:.8,
-    xp:5,
-    onSuccess: function(){
-        let purity = Math.random()*(this.highest-this.lowest)+this.lowest;
-        let ore = new Ore("copper ore",purity,1,.5);
-        return ore;
-    }
-}
-const tinMine = {
-    name:"Tine Mine",
-    req:1,
-    baseDiff:.3,
-    lowest:.2,
-    highest:.8,
-    xp:4,
-    onSuccess: function(){
-        let purity = Math.random()*(this.highest-this.lowest)+this.lowest;
-        let ore = new Ore("tin ore",purity,1,.5);
-        return ore;
-    }
-}
-const firTree = {
-    name:"Fir Tree",
-    req:1,
-    count:3,
-    trunk:3,
-    baseDiff:.7,
-    xp:3,
-    onSuccess: function(){
-        let log = new Log("fir log",1,1);
-        return log;
-    }
-}
-const oakTree = {
-    name:"Oak Tree",
-    req:1,
-    count:5,
-    trunk:5,
-    baseDiff:.6,
-    xp:7,
-    onSuccess: function(){
-        let log = new Log("oak log",1,1);
-        return log;
-    }
-}
-const recipeBook = [" ", 
-    [//level 1 crafts:        Rpick = new Tool("Rusty Pickaxe","mine",1,1,3.5);
-        { name:"Fishing Pole",
-        xp:8,
-        ingredients:["fir log"],
-        makeObj: function(){
-            let pole = new Tool("Fishing Pole","fish",1,1,1);
-            return pole;
-        },
-    }, { name:"Wooden Club",
-        xp:8,
-        ingredients:["fir log"],
-        makeObj: function(){
-            let club = new Weapon("Club","str",1,[1,4],1);
-            return club;
-        }
-    },{ name:"Copper Dagger",
-        xp:12,
-        ingredients:["fir log","copper bar"],
-        makeObj: function(){
-            let dagger = new Weapon("copper dagger","agi",2,[1,6],1);
-            return dagger;
-        }
-    }]
-];
+
+
+
 
 //With all the files loaded, the below statement causes the server to boot up and listen for client connect
 
